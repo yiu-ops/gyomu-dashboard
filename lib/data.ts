@@ -45,6 +45,19 @@ export interface Task {
   _meta: TaskMeta
 }
 
+// ── RAG 인사이트 (rag_analyzer.py 출력 스키마) ────────────────────────────────
+export interface RagInsight {
+  id?: string
+  task_name: string
+  target_date: string
+  core_regulations: string[]
+  action_triggers: string[]
+  lessons_learned: string
+  source_file?: string
+  created_at?: string
+  updated_at?: string
+}
+
 export const CATEGORY_COLORS: Record<Category, { bg: string; text: string; ring: string }> = {
   교원인사: { bg: "bg-blue-100", text: "text-blue-700", ring: "ring-blue-200" },
   비전임조교관리: { bg: "bg-indigo-100", text: "text-indigo-700", ring: "ring-indigo-200" },

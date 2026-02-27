@@ -6,6 +6,7 @@ import {
   Clock,
   Users,
   FileText,
+  Sparkles,
 } from "lucide-react"
 import {
   Sheet,
@@ -14,11 +15,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { CATEGORY_COLORS } from "@/lib/data"
 import type { Task } from "@/lib/data"
+import { RagInsightPanel } from "@/components/rag-insight-panel"
 
 interface TaskDetailSheetProps {
   task: Task | null
@@ -53,7 +56,18 @@ export function TaskDetailSheet({
             {task.task_name} 업무 상세 정보
           </SheetDescription>
         </SheetHeader>
-        <ScrollArea className="h-[calc(100vh-140px)] px-6 pb-6">
+        <Tabs defaultValue="detail" className="flex flex-col h-[calc(100vh-140px)]">
+          <TabsList className="mx-6 mb-2 grid w-[calc(100%-3rem)] grid-cols-2">
+            <TabsTrigger value="detail">업무 상세</TabsTrigger>
+            <TabsTrigger value="insight" className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              RAG 인사이트
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ── 업무 상세 탭 ── */}
+          <TabsContent value="detail" className="mt-0 flex-1 overflow-hidden">
+          <ScrollArea className="h-full px-6 pb-6">
           <div className="flex flex-col gap-6">
             {/* Description */}
             {task.description && (
@@ -163,7 +177,16 @@ export function TaskDetailSheet({
               </section>
             )}
           </div>
-        </ScrollArea>
+          </ScrollArea>
+          </TabsContent>
+
+          {/* ── RAG 인사이트 탭 ── */}
+          <TabsContent value="insight" className="mt-0 flex-1 overflow-hidden">
+            <ScrollArea className="h-full px-6 pb-6">
+              <RagInsightPanel taskName={task.task_name} />
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   )

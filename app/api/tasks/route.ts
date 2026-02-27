@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { readFileSync } from "fs"
 import { join } from "path"
 import type { Task } from "@/lib/data"
+import { supabase } from "@/lib/supabase"
 
 export async function GET() {
   const filePath = join(process.cwd(), "public", "output.json")
@@ -9,6 +10,56 @@ export async function GET() {
   // 텍스트가 없어 건너뛴 항목은 제외
   const tasks = raw.filter((t) => t._parse_status !== "skipped_empty")
   return NextResponse.json(tasks)
+}
+
+/**
+ * POST /api/tasks  ← data_uploader.py 기본 엔드포인트 호환
+ * RAG 인사이트 스키마(task_name, target_date, core_regulations, ...)
+ * 수신 후 Supabase gyomu_tasks 테이블에 upsert
+ */
+export async function POST(request: NextRequest) {
+  let body: Record<string, unknown>
+
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: "invalid JSON body" }, { status: 400 })
+  }
+
+  const { task_name, target_date, core_regulations, action_triggers, lessons_learned, source_file } = body as {
+    task_name?: string
+    target_date?: string
+    core_regulations?: string[]
+    action_triggers?: string[]
+    lessons_learned?: string
+    source_file?: string
+  }
+
+  if (!task_name) {
+    return NextResponse.json({ error: "task_name is required" }, { status: 422 })
+  }
+
+  const payload = {
+    task_name,
+    target_date: target_date ?? null,
+    core_regulations: Array.isArray(core_regulations) ? core_regulations : [],
+    action_triggers: Array.isArray(action_triggers) ? action_triggers : [],
+    lessons_learned: typeof lessons_learned === "string" ? lessons_learned : "",
+    source_file: source_file ?? null,
+  }
+
+  const { data, error } = await supabase
+    .from("gyomu_tasks")
+    .upsert(payload, { onConflict: "task_name" })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("[POST /api/tasks] Supabase error:", error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json(data, { status: 200 })
 }
 
 // ── 이하 mock 데이터 (사용하지 않음, 참고용으로 보존) ────────────────
