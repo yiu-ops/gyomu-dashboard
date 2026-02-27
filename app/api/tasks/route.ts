@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server"
+import { readFileSync } from "fs"
+import { join } from "path"
 import type { Task } from "@/lib/data"
 
-const tasks: Task[] = [
+export async function GET() {
+  const filePath = join(process.cwd(), "public", "output.json")
+  const raw: Task[] = JSON.parse(readFileSync(filePath, "utf-8"))
+  // 텍스트가 없어 건너뛴 항목은 제외
+  const tasks = raw.filter((t) => t._parse_status !== "skipped_empty")
+  return NextResponse.json(tasks)
+}
+
+// ── 이하 mock 데이터 (사용하지 않음, 참고용으로 보존) ────────────────
+const _mockTasks: Task[] = [
   {
     category: "교원인사",
     task_name: "2026학년도 1학기 신규 전임교원 임용",
@@ -166,7 +177,3 @@ const tasks: Task[] = [
     },
   },
 ]
-
-export async function GET() {
-  return NextResponse.json(tasks)
-}
