@@ -1,12 +1,13 @@
 "use client"
 
 import useSWR from "swr"
-import { ClipboardList, Layers, CalendarDays } from "lucide-react"
+import { BrainCircuit, ClipboardList, Layers, CalendarDays } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { TaskListTab } from "@/components/task-list-tab"
 import { CategoryTab } from "@/components/category-tab"
 import { TimelineTab } from "@/components/timeline-tab"
+import { RagInsightsTab } from "@/components/rag-insights-tab"
 import type { Task } from "@/lib/data"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
@@ -51,6 +52,10 @@ export function Dashboard() {
               <CalendarDays className="h-4 w-4" />
               <span>타임라인</span>
             </TabsTrigger>
+            <TabsTrigger value="insights" className="gap-1.5">
+              <BrainCircuit className="h-4 w-4" />
+              <span>RAG 인사이트</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="all">
@@ -63,6 +68,10 @@ export function Dashboard() {
 
           <TabsContent value="timeline">
             <TimelineTab tasks={tasks} />
+          </TabsContent>
+
+          <TabsContent value="insights">
+            <RagInsightsTab />
           </TabsContent>
         </Tabs>
       </main>
