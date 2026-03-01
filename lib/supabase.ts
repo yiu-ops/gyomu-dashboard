@@ -33,6 +33,12 @@ export type Database = {
           source_file: string | null
           created_at: string
           updated_at: string
+          // v2 신규 필드
+          reference_documents: string[] | null
+          compliance_check: string | null
+          recurrence_pattern: string | null
+          document_count: number | null
+          semester: string | null
         }
         Insert: Omit<Database["public"]["Tables"]["gyomu_tasks"]["Row"], "id" | "created_at" | "updated_at">
         Update: Partial<Database["public"]["Tables"]["gyomu_tasks"]["Insert"]>

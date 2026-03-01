@@ -20,12 +20,16 @@ import { useEffect, useRef, useState } from "react"
 import {
   AlertTriangle,
   BookOpen,
+  CalendarClock,
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
   ClockAlert,
+  FileText,
   InboxIcon,
   ListChecks,
+  RotateCcw,
+  ShieldCheck,
   Zap,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -77,6 +81,9 @@ function SummaryWidgets({ tasks }: SummaryWidgetsProps) {
     return acc + (Array.isArray(t.action_triggers) ? t.action_triggers.length : 0)
   }, 0)
 
+  // 규정 준수 경고: compliance_check 가 있는 업무 수
+  const complianceWarnings = tasks.filter((t) => t.compliance_check?.trim()).length
+
   const widgets = [
     {
       label: "이번 주 마감",
@@ -91,6 +98,13 @@ function SummaryWidgets({ tasks }: SummaryWidgetsProps) {
       icon: <Zap className="h-5 w-5" />,
       accent: "text-orange-600 bg-orange-50 border-orange-100",
       valueColor: "text-orange-700",
+    },
+    {
+      label: "규정 준수 진단",
+      value: complianceWarnings,
+      icon: <ShieldCheck className="h-5 w-5" />,
+      accent: "text-violet-600 bg-violet-50 border-violet-100",
+      valueColor: "text-violet-700",
     },
     {
       label: "사전 작업 항목",
@@ -109,7 +123,7 @@ function SummaryWidgets({ tasks }: SummaryWidgetsProps) {
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {widgets.map((w) => (
         <div
           key={w.label}
@@ -174,12 +188,17 @@ function LessonsTooltip({ text }: { text: string }) {
 // ══════════════════════════════════════════════════════════════════
 function InsightCard({ task }: { task: GyomuTask }) {
   const [expanded, setExpanded] = useState(false)
+  const [infoExpanded, setInfoExpanded] = useState(false)
   const [checked, setChecked] = useState<boolean[]>([])
 
   const dday = calculateDDay(task.target_date)
   const triggers: unknown[] = Array.isArray(task.action_triggers) ? task.action_triggers : []
   const regulations: string[] = Array.isArray(task.core_regulations) ? task.core_regulations : []
+  const refDocs: string[] = Array.isArray(task.reference_documents) ? task.reference_documents : []
   const hasLessons = !!task.lessons_learned?.trim()
+  const hasCompliance = !!task.compliance_check?.trim()
+  const hasRecurrence = !!task.recurrence_pattern?.trim()
+  const docCount = task.document_count ?? 0
 
   useEffect(() => {
     setChecked(Array(triggers.length).fill(false))
@@ -198,18 +217,31 @@ function InsightCard({ task }: { task: GyomuTask }) {
       {/* ── 헤더 ─────────────────────────────────────────── */}
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center justify-between gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
-              dday.colorClass
+          <div className="flex items-center gap-1.5">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold",
+                dday.colorClass
+              )}
+            >
+              {dday.section === "urgent" && <ClockAlert className="h-3 w-3" />}
+              {dday.label}
+            </span>
+            {task.semester && (
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                <CalendarClock className="h-2.5 w-2.5" />
+                {task.semester}
+              </span>
             )}
-          >
-            {dday.section === "urgent" && <ClockAlert className="h-3 w-3" />}
-            {dday.label}
-          </span>
-          {task.target_date && (
-            <span className="text-xs text-muted-foreground">{task.target_date}</span>
-          )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {docCount > 0 && (
+              <span className="text-[10px] text-muted-foreground">{docCount}건</span>
+            )}
+            {task.target_date && (
+              <span className="text-xs text-muted-foreground">{task.target_date}</span>
+            )}
+          </div>
         </div>
 
         <div className="mt-1.5 flex items-start gap-1">
@@ -221,7 +253,27 @@ function InsightCard({ task }: { task: GyomuTask }) {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 px-4 pb-4">
-        {/* ── 핵심 규정 짧은 뱃지 ─────────────────────── */}
+        {/* ── 필수 참고 법령/가이드라인 ───────────────── */}
+        {refDocs.length > 0 && (
+          <div className="rounded-md border border-violet-100 bg-violet-50/50 px-3 py-2">
+            <p className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-violet-700">
+              <FileText className="h-3 w-3" />
+              필수 참고 법령·가이드라인
+            </p>
+            <div className="flex flex-col gap-1">
+              {refDocs.slice(0, 3).map((doc, i) => (
+                <p key={i} className="text-[11px] leading-relaxed text-violet-900" title={doc}>
+                  • {doc.length > 55 ? doc.slice(0, 55) + "…" : doc}
+                </p>
+              ))}
+              {refDocs.length > 3 && (
+                <p className="text-[10px] text-violet-600">외 {refDocs.length - 3}건…</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── 내부 규정 짧은 뱃지 ─────────────────────── */}
         {regulations.length > 0 && (
           <div className="flex flex-wrap gap-1">
             <span className="mr-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -241,6 +293,48 @@ function InsightCard({ task }: { task: GyomuTask }) {
               <Badge variant="outline" className="rounded-full px-2 py-0 text-[11px] leading-5">
                 +{regulations.length - 3}
               </Badge>
+            )}
+          </div>
+        )}
+
+        {/* ── 규정 준수 진단 + 반복 주기 (아코디언) ─── */}
+        {(hasCompliance || hasRecurrence) && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setInfoExpanded((v) => !v)}
+              className="flex w-full items-center justify-between rounded-md px-1 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
+              aria-expanded={infoExpanded}
+            >
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                준수 현황 · 반복 주기
+              </span>
+              {infoExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            {infoExpanded && (
+              <div className="mt-2 flex flex-col gap-2">
+                {hasCompliance && (
+                  <div className="rounded-md border border-emerald-100 bg-emerald-50 px-3 py-2">
+                    <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-emerald-800">
+                      <ShieldCheck className="h-3 w-3" /> 규정 준수 진단
+                    </p>
+                    <p className="text-xs leading-relaxed text-emerald-900 whitespace-pre-line">
+                      {task.compliance_check}
+                    </p>
+                  </div>
+                )}
+                {hasRecurrence && (
+                  <div className="rounded-md border border-sky-100 bg-sky-50 px-3 py-2">
+                    <p className="mb-1 flex items-center gap-1 text-[10px] font-semibold text-sky-800">
+                      <RotateCcw className="h-3 w-3" /> 반복 주기 · 착수 권장 시점
+                    </p>
+                    <p className="text-xs leading-relaxed text-sky-900 whitespace-pre-line">
+                      {task.recurrence_pattern}
+                    </p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -305,8 +399,8 @@ function InsightCard({ task }: { task: GyomuTask }) {
 // ══════════════════════════════════════════════════════════════════
 function SkeletonWidgets() {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {Array.from({ length: 5 }).map((_, i) => (
         <Skeleton key={i} className="h-24 rounded-xl" />
       ))}
     </div>
