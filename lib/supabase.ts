@@ -1,5 +1,21 @@
 import { createClient } from "@supabase/supabase-js"
 
+// ── 체크리스트 아이템 (string 또는 {text,done} 객체 모두 허용)
+export interface ChecklistItem {
+  text: string
+  done: boolean
+}
+
+/** compliance_checklists JSONB 셀의 각 원소를 ChecklistItem 으로 정규화 */
+export function normalizeChecklist(
+  raw: (ChecklistItem | string)[] | null | undefined
+): ChecklistItem[] {
+  if (!Array.isArray(raw)) return []
+  return raw.map((item) =>
+    typeof item === "string" ? { text: item, done: false } : item
+  )
+}
+
 // 서버 사이드(API Routes)는 SUPABASE_URL / SUPABASE_KEY
 // 클라이언트 사이드(브라우저)는 NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY
 const supabaseUrl =
@@ -41,7 +57,7 @@ export type Database = {
           semester: string | null
           // v3 SOP 생성기 필드
           standard_timeline: string | null
-          compliance_checklists: string[] | null
+          compliance_checklists: (ChecklistItem | string)[] | null
           early_warning: string | null
           auto_draft_context: string | null
         }
@@ -89,4 +105,22 @@ export async function fetchTaskByName(taskName: string): Promise<GyomuTask | nul
   }
 
   return data
+}
+
+/**
+ * compliance_checklists 체크 상태를 Supabase 에 PATCH 합니다.
+ * Python 업로더가 string[] 로 덮어쓰기 전까지 진행 상태가 유지됩니다.
+ */
+export async function patchChecklistProgress(
+  taskId: string,
+  items: ChecklistItem[]
+): Promise<void> {
+  const { error } = await supabase
+    .from("gyomu_tasks")
+    .update({ compliance_checklists: items })
+    .eq("id", taskId)
+
+  if (error) {
+    console.error("[patchChecklistProgress] 오류:", error.message)
+  }
 }

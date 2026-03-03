@@ -39,7 +39,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn, calculateDDay } from "@/lib/utils"
-import { fetchTasks, type GyomuTask } from "@/lib/supabase"
+import { fetchTasks, normalizeChecklist, type GyomuTask } from "@/lib/supabase"
 
 // ══════════════════════════════════════════════════════════════════
 // 내부 유틸: 규정명 축약
@@ -197,7 +197,7 @@ function InsightCard({ task }: { task: GyomuTask }) {
 
   const dday = calculateDDay(task.target_date)
   const triggers: unknown[] = Array.isArray(task.action_triggers) ? task.action_triggers : []
-  const checklists: string[] = Array.isArray(task.compliance_checklists) ? task.compliance_checklists : []
+  const checklists = normalizeChecklist(task.compliance_checklists)
   const regulations: string[] = Array.isArray(task.core_regulations) ? task.core_regulations : []
   const refDocs: string[] = Array.isArray(task.reference_documents) ? task.reference_documents : []
   const hasLessons = !!task.lessons_learned?.trim()
@@ -410,7 +410,7 @@ function InsightCard({ task }: { task: GyomuTask }) {
                         checklistChecked[i] && "text-muted-foreground line-through"
                       )}
                     >
-                      {item}
+                      {item.text}
                     </label>
                   </li>
                 ))}

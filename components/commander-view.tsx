@@ -21,28 +21,17 @@ import {
   ChevronDown,
   ChevronUp,
   CircleDashed,
-  FileCode2,
   Inbox,
-  Lightbulb,
-  Loader2,
   ShieldAlert,
   TriangleAlert,
   Zap,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn, calculateDDay } from "@/lib/utils"
-import { fetchTasks, type GyomuTask } from "@/lib/supabase"
+import { fetchTasks, normalizeChecklist, type GyomuTask } from "@/lib/supabase"
+import { ActionModal } from "@/components/action-modal"
 
 // ═══════════════════════════════════════════════════════════════════
 // 유틸: standard_timeline 텍스트에서 언급된 월(1~12) 추출
@@ -175,12 +164,10 @@ interface KanbanCardProps {
 
 function KanbanCard({ task, onClick }: KanbanCardProps) {
   const dday = calculateDDay(task.target_date)
-  const checklists = Array.isArray(task.compliance_checklists)
-    ? task.compliance_checklists
-    : []
+  const checklists = normalizeChecklist(task.compliance_checklists)
   const total = checklists.length
-  // 완료 진행률은 UI 상태이므로 0으로 초기화 (카드에서는 "0/N" 표시)
-  const progressPct = 0
+  const doneCount = checklists.filter((c) => c.done).length
+  const progressPct = total === 0 ? 0 : Math.round((doneCount / total) * 100)
 
   return (
     <button
@@ -233,7 +220,7 @@ function KanbanCard({ task, onClick }: KanbanCardProps) {
               <CircleDashed className="h-3 w-3" />
               준수 체크 진행
             </span>
-            <span>0 / {total} 완료</span>
+            <span>{doneCount} / {total} 완료</span>
           </div>
           <Progress value={progressPct} className="h-1.5" />
         </div>
@@ -243,237 +230,6 @@ function KanbanCard({ task, onClick }: KanbanCardProps) {
         )
       )}
     </button>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// [3] 상세 다이얼로그
-// ═══════════════════════════════════════════════════════════════════
-interface TaskDetailDialogProps {
-  task: GyomuTask | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      type="button"
-      onClick={async () => {
-        await navigator.clipboard.writeText(text)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      }}
-      className="flex items-center gap-1 rounded px-2 py-0.5 text-[11px] text-slate-500 hover:bg-slate-200 transition-colors"
-    >
-      {copied ? <CheckCircle2 className="h-3 w-3 text-green-600" /> : null}
-      {copied ? "복사됨" : "복사"}
-    </button>
-  )
-}
-
-function TaskDetailDialog({ task, open, onOpenChange }: TaskDetailDialogProps) {
-  const [checklistChecked, setChecklistChecked] = useState<boolean[]>([])
-
-  useEffect(() => {
-    if (!task) return
-    const items = Array.isArray(task.compliance_checklists)
-      ? task.compliance_checklists
-      : []
-    setChecklistChecked(Array(items.length).fill(false))
-  }, [task])
-
-  if (!task) return null
-
-  const checklists: string[] = Array.isArray(task.compliance_checklists)
-    ? task.compliance_checklists
-    : []
-  const regulations: string[] = Array.isArray(task.core_regulations)
-    ? task.core_regulations
-    : []
-  const triggers: string[] = Array.isArray(task.action_triggers)
-    ? task.action_triggers as string[]
-    : []
-  const dday = calculateDDay(task.target_date)
-  const done = checklistChecked.filter(Boolean).length
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl p-0 gap-0">
-        <DialogHeader className="px-6 pt-5 pb-4 border-b">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold", dday.colorClass)}>
-              {dday.label}
-            </span>
-            {task.semester && (
-              <Badge variant="secondary" className="text-[11px]">{task.semester}</Badge>
-            )}
-          </div>
-          <DialogTitle className="text-base leading-snug pr-8">
-            {task.task_name}
-          </DialogTitle>
-          <DialogDescription className="sr-only">{task.task_name} 상세</DialogDescription>
-        </DialogHeader>
-
-        <ScrollArea className="max-h-[70vh]">
-          <div className="flex flex-col gap-5 px-6 py-5">
-
-            {/* 🚨 긴급 주의보 */}
-            {task.early_warning && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2.5">
-                <AlertOctagon className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-                <div>
-                  <p className="text-xs font-bold text-red-700 mb-0.5">🚨 긴급 주의보</p>
-                  <p className="text-sm leading-relaxed text-red-900 whitespace-pre-line">
-                    {task.early_warning}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* 처리 기준 시점 */}
-            {task.standard_timeline && (
-              <>
-                <section>
-                  <h4 className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
-                    <CalendarClock className="h-4 w-4 text-sky-600" />
-                    처리 기준 시점
-                    <span className="ml-auto text-[11px] border border-sky-200 bg-sky-50 text-sky-700 rounded-full px-2 py-0.5">행정편람 기준</span>
-                  </h4>
-                  <p className="whitespace-pre-line rounded-md border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-900 leading-relaxed">
-                    {task.standard_timeline}
-                  </p>
-                </section>
-                <Separator />
-              </>
-            )}
-
-            {/* 핵심 규정 */}
-            {regulations.length > 0 && (
-              <>
-                <section>
-                  <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                    <Lightbulb className="h-4 w-4 text-amber-500" />
-                    핵심 근거 규정
-                  </h4>
-                  <ul className="flex flex-col gap-1.5">
-                    {regulations.map((reg, i) => (
-                      <li key={i} className="flex items-start gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                        <span className="shrink-0 font-mono text-xs font-bold text-primary mt-0.5">
-                          {String(i + 1).padStart(2, "0")}
-                        </span>
-                        <span className="leading-relaxed">{reg}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-                <Separator />
-              </>
-            )}
-
-            {/* 준수 체크리스트 */}
-            {checklists.length > 0 && (
-              <>
-                <section>
-                  <h4 className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
-                    <CheckCircle2 className="h-4 w-4 text-violet-500" />
-                    준수 체크리스트
-                    <span className="ml-auto text-xs text-muted-foreground">{done}/{checklists.length} 완료</span>
-                  </h4>
-                  <Progress value={Math.round((done / checklists.length) * 100)} className="h-1.5 mb-3" />
-                  <div className="flex flex-col gap-1.5">
-                    {checklists.map((item, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setChecklistChecked((prev) => {
-                          const next = [...prev]
-                          next[i] = !next[i]
-                          return next
-                        })}
-                        className={cn(
-                          "flex items-start gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
-                          checklistChecked[i]
-                            ? "bg-emerald-50 text-emerald-800"
-                            : "bg-muted/40 text-foreground hover:bg-muted"
-                        )}
-                      >
-                        {checklistChecked[i]
-                          ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
-                          : <CircleDashed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                        <span className={cn("leading-relaxed", checklistChecked[i] && "line-through decoration-emerald-400")}>
-                          {item}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <Separator />
-              </>
-            )}
-
-            {/* 사전 액션 트리거 */}
-            {triggers.length > 0 && (
-              <>
-                <section>
-                  <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                    <Zap className="h-4 w-4 text-amber-500" />
-                    사전 액션 트리거
-                  </h4>
-                  <div className="flex flex-col gap-1.5">
-                    {triggers.map((t, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm">
-                        <Badge variant="outline" className="mt-0.5 shrink-0 border-amber-300 bg-amber-50 text-amber-700 font-normal">
-                          {i + 1}
-                        </Badge>
-                        <span className="text-muted-foreground leading-relaxed">{t}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                <Separator />
-              </>
-            )}
-
-            {/* 교훈 */}
-            {task.lessons_learned && (
-              <>
-                <section>
-                  <h4 className="mb-1.5 flex items-center gap-2 text-sm font-semibold">
-                    <Lightbulb className="h-4 w-4 text-yellow-500" />
-                    교훈 및 개선점
-                  </h4>
-                  <p className="whitespace-pre-line text-sm text-muted-foreground leading-relaxed">
-                    {task.lessons_learned}
-                  </p>
-                </section>
-                <Separator />
-              </>
-            )}
-
-            {/* 기안문 초안 */}
-            {task.auto_draft_context && (
-              <section>
-                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                  <FileCode2 className="h-4 w-4 text-slate-600" />
-                  기안문 초안 뼈대
-                </h4>
-                <div className="relative rounded-md border border-slate-200 bg-slate-50">
-                  <div className="absolute right-2 top-2">
-                    <CopyButton text={task.auto_draft_context} />
-                  </div>
-                  <pre className="overflow-x-auto whitespace-pre-wrap break-words p-4 pr-16 text-xs leading-relaxed text-slate-700 font-mono">
-                    {task.auto_draft_context}
-                  </pre>
-                </div>
-              </section>
-            )}
-
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
   )
 }
 
@@ -663,8 +419,8 @@ export function CommanderView() {
       {/* ── [2] 칸반 보드 ── */}
       <KanbanBoard tasks={tasks} onCardClick={handleCardClick} />
 
-      {/* ── [3] 상세 다이얼로그 ── */}
-      <TaskDetailDialog
+      {/* ── [3] Action Modal ── */}
+      <ActionModal
         task={selectedTask}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
