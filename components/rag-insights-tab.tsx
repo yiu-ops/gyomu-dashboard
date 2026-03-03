@@ -18,12 +18,14 @@
 
 import { useEffect, useRef, useState } from "react"
 import {
+  AlertOctagon,
   AlertTriangle,
   BookOpen,
   CalendarClock,
   ChevronDown,
   ChevronUp,
   ClipboardCheck,
+  ClipboardList,
   ClockAlert,
   FileText,
   InboxIcon,
@@ -190,21 +192,31 @@ function InsightCard({ task }: { task: GyomuTask }) {
   const [expanded, setExpanded] = useState(false)
   const [infoExpanded, setInfoExpanded] = useState(false)
   const [checked, setChecked] = useState<boolean[]>([])
+  const [checklistChecked, setChecklistChecked] = useState<boolean[]>([])
+  const [checklistExpanded, setChecklistExpanded] = useState(false)
 
   const dday = calculateDDay(task.target_date)
   const triggers: unknown[] = Array.isArray(task.action_triggers) ? task.action_triggers : []
+  const checklists: string[] = Array.isArray(task.compliance_checklists) ? task.compliance_checklists : []
   const regulations: string[] = Array.isArray(task.core_regulations) ? task.core_regulations : []
   const refDocs: string[] = Array.isArray(task.reference_documents) ? task.reference_documents : []
   const hasLessons = !!task.lessons_learned?.trim()
   const hasCompliance = !!task.compliance_check?.trim()
   const hasRecurrence = !!task.recurrence_pattern?.trim()
+  const hasEarlyWarning = !!task.early_warning?.trim()
+  const hasTimeline = !!task.standard_timeline?.trim()
   const docCount = task.document_count ?? 0
 
   useEffect(() => {
     setChecked(Array(triggers.length).fill(false))
   }, [triggers.length])
 
+  useEffect(() => {
+    setChecklistChecked(Array(checklists.length).fill(false))
+  }, [checklists.length])
+
   const completedCount = checked.filter(Boolean).length
+  const checklistDone = checklistChecked.filter(Boolean).length
 
   return (
     <Card
@@ -244,12 +256,30 @@ function InsightCard({ task }: { task: GyomuTask }) {
           </div>
         </div>
 
+        {/* ── 🚨 긴급 주의보 배너 ─────────────────────── */}
+        {hasEarlyWarning && (
+          <div className="mt-2 flex items-start gap-1.5 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5">
+            <AlertOctagon className="mt-0.5 h-3 w-3 shrink-0 text-red-600" />
+            <p className="line-clamp-2 text-[11px] leading-relaxed text-red-900">
+              {task.early_warning}
+            </p>
+          </div>
+        )}
+
         <div className="mt-1.5 flex items-start gap-1">
           <p className="text-sm font-semibold leading-snug text-foreground">
             {task.task_name}
           </p>
           {hasLessons && <LessonsTooltip text={task.lessons_learned!} />}
         </div>
+
+        {/* ── 처리 기준 시점 ────────────────────────── */}
+        {hasTimeline && (
+          <div className="flex items-center gap-1 rounded-md border border-sky-100 bg-sky-50 px-2 py-1">
+            <CalendarClock className="h-3 w-3 shrink-0 text-sky-600" />
+            <span className="line-clamp-1 text-[11px] text-sky-800">{task.standard_timeline}</span>
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3 px-4 pb-4">
@@ -335,6 +365,56 @@ function InsightCard({ task }: { task: GyomuTask }) {
                   </div>
                 )}
               </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 준수 체크리스트 ────────────────────────── */}
+        {checklists.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setChecklistExpanded((v) => !v)}
+              className="flex w-full items-center justify-between rounded-md px-1 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted/50 transition-colors"
+              aria-expanded={checklistExpanded}
+            >
+              <span className="flex items-center gap-1.5">
+                <ClipboardList className="h-3.5 w-3.5" />
+                준수 체크리스트
+                <span className="rounded-full bg-muted px-1.5 py-0 text-[10px]">
+                  {checklistDone}/{checklists.length}
+                </span>
+              </span>
+              {checklistExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </button>
+            {checklistExpanded && (
+              <ol className="mt-2 flex flex-col gap-1.5 pl-1">
+                {checklists.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <Checkbox
+                      id={`${task.id}-cl-${i}`}
+                      checked={checklistChecked[i] ?? false}
+                      onCheckedChange={(val) =>
+                        setChecklistChecked((prev) => {
+                          const next = [...prev]
+                          next[i] = val === true
+                          return next
+                        })
+                      }
+                      className="mt-0.5 shrink-0"
+                    />
+                    <label
+                      htmlFor={`${task.id}-cl-${i}`}
+                      className={cn(
+                        "cursor-pointer text-xs leading-relaxed text-foreground",
+                        checklistChecked[i] && "text-muted-foreground line-through"
+                      )}
+                    >
+                      {item}
+                    </label>
+                  </li>
+                ))}
+              </ol>
             )}
           </div>
         )}

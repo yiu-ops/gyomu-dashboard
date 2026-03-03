@@ -56,6 +56,17 @@ export interface RagInsight {
   source_file?: string
   created_at?: string
   updated_at?: string
+  // v2 필드
+  reference_documents?: string[]
+  compliance_check?: string
+  recurrence_pattern?: string
+  document_count?: number
+  semester?: string
+  // v3 SOP 생성기 필드
+  standard_timeline?: string
+  compliance_checklists?: string[]
+  early_warning?: string
+  auto_draft_context?: string
 }
 
 export const CATEGORY_COLORS: Record<Category, { bg: string; text: string; ring: string }> = {
