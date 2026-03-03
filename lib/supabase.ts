@@ -39,6 +39,11 @@ export type Database = {
           recurrence_pattern: string | null
           document_count: number | null
           semester: string | null
+          // v3 SOP 생성기 필드
+          standard_timeline: string | null
+          compliance_checklists: string[] | null
+          early_warning: string | null
+          auto_draft_context: string | null
         }
         Insert: Omit<Database["public"]["Tables"]["gyomu_tasks"]["Row"], "id" | "created_at" | "updated_at">
         Update: Partial<Database["public"]["Tables"]["gyomu_tasks"]["Insert"]>
