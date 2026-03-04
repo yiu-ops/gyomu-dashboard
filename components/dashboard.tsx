@@ -1,6 +1,6 @@
 "use client"
 
-import useSWR from "swr"
+import { useEffect, useState } from "react"
 import { BrainCircuit, CalendarDays, ClipboardList, Layers, LayoutDashboard } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DashboardHeader } from "@/components/dashboard-header"
@@ -9,12 +9,19 @@ import { CategoryTab } from "@/components/category-tab"
 import { TimelineTab } from "@/components/timeline-tab"
 import { RagInsightsTab } from "@/components/rag-insights-tab"
 import { CommanderView } from "@/components/commander-view"
-import type { Task } from "@/lib/data"
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json())
+import { fetchTasks, type GyomuTask } from "@/lib/supabase"
 
 export function Dashboard() {
-  const { data: tasks = [], isLoading, error } = useSWR<Task[]>("/api/tasks", fetcher)
+  const [tasks, setTasks] = useState<GyomuTask[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    fetchTasks()
+      .then(setTasks)
+      .catch(() => setError(true))
+      .finally(() => setIsLoading(false))
+  }, [])
 
   if (isLoading) {
     return (
@@ -39,7 +46,7 @@ export function Dashboard() {
     <div className="min-h-screen bg-background">
       <DashboardHeader totalCount={tasks.length} />
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-<Tabs defaultValue="commander" className="gap-6">
+        <Tabs defaultValue="commander" className="gap-6">
           <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="commander" className="gap-1.5">
               <LayoutDashboard className="h-4 w-4" />
@@ -51,7 +58,7 @@ export function Dashboard() {
             </TabsTrigger>
             <TabsTrigger value="category" className="gap-1.5">
               <Layers className="h-4 w-4" />
-              <span>카테고리별</span>
+              <span>학기별</span>
             </TabsTrigger>
             <TabsTrigger value="timeline" className="gap-1.5">
               <CalendarDays className="h-4 w-4" />
