@@ -64,7 +64,7 @@ export interface RagInsight {
   semester?: string
   // v3 SOP 생성기 필드
   standard_timeline?: string
-  compliance_checklists?: string[]
+  compliance_checklists?: (string | { text: string; done: boolean })[] | null
   early_warning?: string
   auto_draft_context?: string
 }

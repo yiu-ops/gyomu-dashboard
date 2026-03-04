@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import type { RagInsight } from "@/lib/data"
+import { normalizeChecklist } from "@/lib/supabase"
 
 interface RagInsightPanelProps {
   taskName: string
@@ -60,8 +61,9 @@ function DraftBlock({ text }: { text: string }) {
 }
 
 // ── 준수 체크리스트 ──────────────────────────────────────────────
-function ComplianceChecklist({ items }: { items: string[] }) {
-  const [checked, setChecked] = useState<boolean[]>(() => Array(items.length).fill(false))
+function ComplianceChecklist({ raw }: { raw: RagInsight["compliance_checklists"] }) {
+  const items = normalizeChecklist(raw as Parameters<typeof normalizeChecklist>[0])
+  const [checked, setChecked] = useState<boolean[]>(() => items.map((c) => c.done))
   const completedCount = checked.filter(Boolean).length
   return (
     <div className="flex flex-col gap-1.5">
@@ -83,7 +85,7 @@ function ComplianceChecklist({ items }: { items: string[] }) {
           {checked[i]
             ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
             : <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-          <span className="leading-relaxed">{item}</span>
+          <span className="leading-relaxed">{item.text}</span>
         </button>
       ))}
     </div>
@@ -209,18 +211,33 @@ export function RagInsightPanel({ taskName }: RagInsightPanelProps) {
               <Zap className="h-4 w-4 text-amber-500" />
               사전 액션 트리거
             </h4>
-            <div className="flex flex-col gap-2">
-              {data.action_triggers.map((trigger, i) => (
-                <div key={i} className="flex items-start gap-2 text-sm">
-                  <Badge
-                    variant="outline"
-                    className="mt-0.5 shrink-0 border-amber-300 bg-amber-50 text-amber-700 font-normal"
-                  >
-                    액션 {i + 1}
-                  </Badge>
-                  <span className="text-muted-foreground leading-relaxed">{trigger}</span>
+            <div className="relative flex flex-col gap-2 border-l-2 border-amber-200 ml-1 pl-4">
+              {data.action_triggers.map((trigger, i) => {
+                const m = trigger.match(/^(D[+-]\d+):\s*(.+)$/)
+                const dTag = m ? m[1] : null
+                const content = m ? m[2] : trigger
+                return (
+                <div key={i} className="relative flex items-start gap-2 text-sm">
+                  <div className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  {dTag ? (
+                    <Badge
+                      variant="outline"
+                      className="mt-0.5 shrink-0 border-amber-400 bg-amber-100 text-amber-800 font-bold text-[11px]"
+                    >
+                      {dTag}
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="mt-0.5 shrink-0 border-amber-300 bg-amber-50 text-amber-700 font-normal"
+                    >
+                      액션 {i + 1}
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground leading-relaxed">{content}</span>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </section>
         </>
@@ -235,7 +252,7 @@ export function RagInsightPanel({ taskName }: RagInsightPanelProps) {
               <ClipboardList className="h-4 w-4 text-violet-500" />
               준수 체크리스트
             </h4>
-            <ComplianceChecklist items={data.compliance_checklists} />
+            <ComplianceChecklist raw={data.compliance_checklists} />
           </section>
         </>
       )}
